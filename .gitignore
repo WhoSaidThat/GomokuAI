@@ -58,8 +58,14 @@ docs/_build/
 # PyBuilder
 target/
 
-#Ipython Notebook
+# Ipython Notebook
 .ipynb_checkpoints
 
-#network model
+# network model
 model/
+
+# Mac
+.DS_Store
+
+# Vim
+*.swp
