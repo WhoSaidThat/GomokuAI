@@ -1,9 +1,11 @@
 import tensorflow as tf
 import os
 
-class CriticNN():
+
+class CriticNN:
     
-    def __init__(self, input_size=274, hidden_size=100, alpha=0.1, discount=0.9, learn_rate=0.1, step=100, model_dir='model/', model_name='model'):
+    def __init__(self, input_size=274, hidden_size=100, alpha=0.1, discount=0.9, learn_rate=0.1, step=100,
+                 model_dir='model/', model_name='model'):
         self._alpha = alpha
         self._discount = discount
         self._learn_rate = learn_rate
@@ -14,15 +16,26 @@ class CriticNN():
         if not os.path.isdir(model_dir):
             os.system('mkdir ' + model_dir)
 
+        self._graph = tf.Graph()
+        with self._graph.as_default():
+            self._W1 = tf.Variable(tf.zeros([self._input_size, self._hidden_size]), name='W1')
+            self._W2 = tf.Variable(tf.zeros([self._hidden_size, 1]), name='W2')
+            self._saver = tf.train.Saver()
+
+            self._sess = tf.Session(graph=self._graph)
+            if os.path.exists(self._model_path):
+                self._saver.restore(self._sess, self._model_path)
+            else:
+                init = tf.initialize_all_variables()
+                self._sess.run(init)
+
     # build one hidden layer graph
     def inference(self, input_layer):
         with tf.name_scope('hidden'):
-            weights = tf.Variable(tf.zeros([self._input_size, self._hidden_size]), name='weights')
-            hidden = tf.sigmoid(tf.matmul(input_layer, weights))
+            hidden = tf.sigmoid(tf.matmul(input_layer, self._W1))
 
         with tf.name_scope('output'):
-            weights = tf.Variable(tf.zeros([self._hidden_size, 1]), name='weights')
-            logits = tf.sigmoid(tf.matmul(hidden, weights))
+            logits = tf.sigmoid(tf.matmul(hidden, self._W2))
 
         return logits
 
@@ -33,64 +46,46 @@ class CriticNN():
         E = tf.mul(0.5, tf.pow(e, 2))
         return E
 
-    # should be put after variables are defined
-    def session(self):
-        saver = tf.train.Saver()
-        sess = tf.Session()
-        
-        if os.path.exists(self._model_path):
-            saver.restore(sess, self._model_path)
-        else:
-            init = tf.initialize_all_variables()
-            sess.run(init)
-
-        return sess
-
     def placeholders(self):
         input_placeholder = tf.placeholder(tf.float32, shape=[None, self._input_size])
         reward_next_placeholder = tf.placeholder(tf.float32, shape=[None, 1])
-        v_next_placeholder = tf.placeholder(tf.float32, shape=[None, 1])
+        next_input_placeholder = tf.placeholder(tf.float32, shape=[None, self._input_size])
 
-        return input_placeholder, reward_next_placeholder, v_next_placeholder
+        return input_placeholder, reward_next_placeholder, next_input_placeholder
 
-    def train_op(self, input_placeholder, reward_next_placeholder, v_next_placeholder):
+    def train_op(self, input_placeholder, reward_next_placeholder, next_input_placeholder):
         optimizer = tf.train.GradientDescentOptimizer(learning_rate=self._learn_rate)
         logits = self.inference(input_placeholder)
-        loss = self.loss(reward_next_placeholder, logits, v_next_placeholder)
+        next_logits = self.inference(next_input_placeholder)
+        loss = self.loss(reward_next_placeholder, logits, next_logits)
         train_op = optimizer.minimize(loss)
 
         return train_op
 
     def run_value(self, x):
-        with tf.Graph().as_default():
-            input_placeholder =  tf.placeholder(tf.float32, shape=[None, self._input_size])
+        with self._graph.as_default():
+            input_placeholder = tf.placeholder(tf.float32, shape=[None, self._input_size])
             logits = self.inference(input_placeholder)
-            sess = self.session()
-            feed_dict = {input_placeholder: x}
-            value = sess.run(logits, feed_dict=feed_dict)
+            value = self._sess.run(logits, feed_dict={input_placeholder: x})
 
         return value
 
     def run_learning(self, reward_next, x_current, x_next):
-        v_current = self.run_value(x_current)
-        v_next = self.run_value(x_next)
-
-        with tf.Graph().as_default():
-            input_placeholder, reward_next_placeholder, v_next_placeholder = self.placeholders()
-            train_op = self.train_op(input_placeholder, reward_next_placeholder, v_next_placeholder)
+        with self._graph.as_default():
+            input_placeholder, reward_next_placeholder, next_input_placeholder = self.placeholders()
+            train_op = self.train_op(input_placeholder, reward_next_placeholder, next_input_placeholder)
             
             feed_dict = {reward_next_placeholder: reward_next,
-                        v_next_placeholder: v_next, 
-                        input_placeholder: x_current}
+                         next_input_placeholder: x_next,
+                         input_placeholder: x_current}
 
-            sess = self.session()
-            for _ in range(self._step):
-                sess.run(train_op, feed_dict=feed_dict)
+            self._sess.run(train_op, feed_dict=feed_dict)
+            self._saver.save(self._sess, self._model_path)
 
-            saver = tf.train.Saver()
-            saver.save(sess, self._model_path)
-
+        v_current = self.run_value(x_current)
+        v_next = self.run_value(x_next)
         return v_current, v_next
+
 
 def test():
     CNN = CriticNN(3)
