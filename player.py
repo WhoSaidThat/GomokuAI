@@ -7,6 +7,7 @@ import config
 import operator
 import rl_network.critic_network as cnn
 
+
 class GomokuPlayer:
     def __init__(self, stone_color):
         if stone_color.lower() not in ['w', 'b']:
@@ -25,7 +26,6 @@ class GuiPlayer(GomokuPlayer):
         self._next_move = None
 
     def think(self, game):
-        print(utils.scan_patterns(game._board, config.pattern_file_name))
         # wait until move event set
         self._move_event.clear()
         self._move_event.wait()
@@ -35,6 +35,7 @@ class GuiPlayer(GomokuPlayer):
     def make_move(self, move):
         self._next_move = move
         self._move_event.set()
+
 
 class GuiTestPlayer(GomokuPlayer):
     def __init__(self, *args, **kwargs):
@@ -46,7 +47,7 @@ class GuiTestPlayer(GomokuPlayer):
 
     def think(self, game):
         import operator
-        self._pattern = utils.scan_patterns(game._board, config.pattern_file_name)
+        self._pattern = utils.extract_features(game.board.board, config.pattern_file_name)
         print(self._pattern)
         legal_moves = game.get_legal_moves()
         values_dict = {}
@@ -54,7 +55,7 @@ class GuiTestPlayer(GomokuPlayer):
         pattern_array = []
         for x, y in legal_moves:
             tmp_board[x][y] = game.current_player.stone_color
-            pattern_array.append(utils.scan_patterns(game._board, config.pattern_file_name))
+            pattern_array.append(utils.extract_features(game.board.board, config.pattern_file_name))
             #print(self._pattern)
             #print(value)
             tmp_board[x][y] = '.'
@@ -77,10 +78,12 @@ class GuiTestPlayer(GomokuPlayer):
         self._next_move = move
         self._move_event.set()
 
+
 class RandomAIPlayer(GomokuPlayer):
     def think(self, game):
         time.sleep(0.1)
         return random.choice(game.get_legal_moves())
+
 
 class ReinforceAIPlayer(GomokuPlayer):
     def __init__(self, *args, **kwargs):
@@ -97,7 +100,7 @@ class ReinforceAIPlayer(GomokuPlayer):
         pattern_array = []
         for x, y in legal_moves:
             tmp_board[x][y] = game.current_player.stone_color
-            pattern_array.append(utils.scan_patterns(game._board, config.pattern_file_name))
+            pattern_array.append(utils.extract_features(game.board.board, config.pattern_file_name))
             tmp_board[x][y] = '.'
 
         values = self.CNN.run_value(pattern_array)
@@ -105,8 +108,8 @@ class ReinforceAIPlayer(GomokuPlayer):
             values_dict[(x, y)] = values[index]
         max_point = max(values_dict.items(), key=operator.itemgetter(1))[0]
         tmp_board[max_point[0]][max_point[1]] = game.current_player.stone_color
-        self._pattern = utils.scan_patterns(game._board, config.pattern_file_name)
-        new_pattern = utils.scan_patterns(tmp_board, config.pattern_file_name)
+        self._pattern = utils.extract_features(game.board.board, config.pattern_file_name)
+        new_pattern = utils.extract_features(tmp_board, config.pattern_file_name)
         #print(max_point)
         #print(values_dict[max_point])
         #reward
@@ -130,9 +133,9 @@ class ReinforceRandomPlayer(GomokuPlayer):
     def think(self, game):
         max_point = random.choice(game.get_legal_nearby_moves(1))
         tmp_board = game.get_current_board()
-        self._pattern = utils.scan_patterns(game._board, config.pattern_file_name)
+        self._pattern = utils.extract_features(game.board.board, config.pattern_file_name)
         tmp_board[max_point[0]][max_point[1]] = game.current_player.stone_color
-        new_pattern = utils.scan_patterns(tmp_board, config.pattern_file_name)
+        new_pattern = utils.extract_features(tmp_board, config.pattern_file_name)
         #reward
         if new_pattern[10] == 1:
             print("learning...reward 1")
