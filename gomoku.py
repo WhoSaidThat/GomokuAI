@@ -1,6 +1,7 @@
 from threading import Thread
 
 import kivy
+import os
 from kivy.app import App
 from kivy.clock import mainthread
 from kivy.graphics import Color, Line
@@ -9,7 +10,7 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.image import Image
 
 from game import GomokuGame
-from player import GuiPlayer, RandomAIPlayer, ReinforceAIPlayer, GuiTestPlayer, ReinforceRandomPlayer
+from player import *
 
 kivy.require('1.9.1')
 
@@ -123,8 +124,9 @@ class GomokuApp(App):
         super(GomokuApp, self).__init__(**kwargs)
         #self.game = GomokuGame(GuiPlayer, GuiPlayer)
         #self.game = GomokuGame(GuiTestPlayer, GuiTestPlayer)
-        self.game = GomokuGame(ReinforceAIPlayer, ReinforceRandomPlayer)
+        self.game = GomokuGame(ReinforceAIBlackPlayer, ReinforceAIWhitePlayer)
         #self.game = GomokuGame(RandomAIPlayer, RandomAIPlayer)
+        #self.game = GomokuGame(PlayRecordPlayer, PlayRecordPlayer)
 
     def build(self):
         layout = BoardLayout()

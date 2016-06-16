@@ -6,11 +6,16 @@ class GomokuGame:
         self.players = [player1_cls('b'), player2_cls('w')]
         self.moves = 0
         self._event_callback = None
+        open('play_record.txt', 'w').close() # erase play_record.txt
 
     def start(self):
         while not self.is_final_state():
             move = self.current_player.think(self)
-
+            
+            with open('play_record.txt', 'a') as f:
+                write_str = str(move[0]) + ", " + str(move[1]) + "\n"
+                f.write(write_str)
+            
             # Check if the move is legal. If yes, update board.
             if self.is_legal_move(move):
                 self._board[move[0]][move[1]] = self.current_player.stone_color
@@ -62,7 +67,7 @@ class GomokuGame:
                     moves.append((row, col))
         return moves
 
-    def get_legal_nearby_moves(self, nearby_length=1):
+    def get_legal_nearby_moves(self, nearby_length=2):
         """
         This gives nearby moves within the nearby_length 
         (ex. nearby_length=1 --> would search for current_place-1 ~ current_place+1
@@ -76,7 +81,7 @@ class GomokuGame:
                     if not self._is_nearby_empty(nearby_length, row, col):
                         moves.append((row, col))
         if len(moves) == 0:
-            moves.append(random.choice(self.get_legal_moves()))
+            moves.append((7, 7))
 
         return moves
 
