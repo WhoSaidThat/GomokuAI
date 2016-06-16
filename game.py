@@ -119,12 +119,14 @@ class Board:
 
     def enumerate_next_board(self):
         """Enumerate all possible next board.
-        :return: Generator that generates tuple (move, board_in_list).
+        :return: A list of (move, board_in_list).
         """
+        nb = []
         for move in self.get_legal_moves():
             next_board = Board(self._board)
             next_board.put_stone(move)
-            yield move, next_board.board
+            nb.append((move, next_board.board))
+        return nb
 
     def get_state(self):
         """Return board state. 0: none, 1: black, 2: white, 3: board full"""
