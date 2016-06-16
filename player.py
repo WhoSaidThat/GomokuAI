@@ -60,13 +60,15 @@ class GuiTestPlayer(GomokuPlayer):
             #print(value)
             tmp_board[x][y] = '.'
 
-        values = self.CNN.run_value(pattern_array)[0]
+        values = self.CNN.run_value(pattern_array)
         for index, (x, y) in enumerate(legal_moves):
-            print(values[index])
+            #print(values[index])
             values_dict[(x, y)] = values[index]
         max_point = max(values_dict.items(), key=operator.itemgetter(1))[0]
+        print(self._pattern)
         print(max_point)
         print(values_dict[max_point])
+        print(self.CNN.run_value([self._pattern])[0])
 
         # wait until move event set
         self._move_event.clear()
@@ -94,7 +96,7 @@ class ReinforceAIPlayer(GomokuPlayer):
         self.CNN = cnn.CriticNN(config.pattern_num)
 
     def think(self, game):
-        legal_moves = game.get_legal_nearby_moves(1)
+        legal_moves = game.get_legal_nearby_moves(2)
         values_dict = {}
         tmp_board = game.get_current_board()
         pattern_array = []
@@ -131,7 +133,7 @@ class ReinforceRandomPlayer(GomokuPlayer):
         self.CNN = cnn.CriticNN(config.pattern_num)
 
     def think(self, game):
-        max_point = random.choice(game.get_legal_nearby_moves(1))
+        max_point = random.choice(game.get_legal_nearby_moves(2))
         tmp_board = game.get_current_board()
         self._pattern = utils.extract_features(game.board.board, config.pattern_file_name)
         tmp_board[max_point[0]][max_point[1]] = game.current_player.stone_color
@@ -144,3 +146,27 @@ class ReinforceRandomPlayer(GomokuPlayer):
             print("reward 0")
             print(self.CNN.run_learning([[0.]], [self._pattern], [new_pattern]))
         return max_point
+
+class LearningTestPlayer(GomokuPlayer):
+    def __init__(self, *args, **kwargs):
+        super(LearningTestPlayer, self).__init__(*args, **kwargs)
+        self._pattern = [0] * config.pattern_num
+        self.CNN = cnn.CriticNN(config.pattern_num)
+
+    def think(self, game):
+          if game.moves < len(game.test_move):
+              max_point = game.test_move[game.moves]
+              tmp_board = game.get_current_board()
+              self._pattern = utils.scan_patterns(tmp_board, config.pattern_file_name)
+              print("current pattern:", self._pattern)
+              tmp_board[max_point[0]][max_point[1]] = game.current_player.stone_color
+              new_pattern = utils.scan_patterns(tmp_board, config.pattern_file_name)
+              print("new pattern:", new_pattern)
+              #reward
+              if new_pattern[10] == 1:
+                  print("learning...reward 1")
+                  print(self.CNN.run_learning([[1.]], [self._pattern], [new_pattern]))
+              else:
+                  print("reward 0")
+                  print(self.CNN.run_learning([[0.]], [self._pattern], [new_pattern]))
+              return max_point
