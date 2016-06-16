@@ -1,4 +1,5 @@
 from threading import Thread
+import time
 
 import kivy
 from kivy.app import App
@@ -7,9 +8,12 @@ from kivy.graphics import Color, Line
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.image import Image
+from kivy.uix.label import Label
 
-from game import GomokuGame
+from game import GomokuGame, BoardUpdateEvent, GameOverEvent, MoveEvent
 from player import GuiPlayer, RandomAIPlayer, ReinforceAIPlayer, GuiTestPlayer, ReinforceRandomPlayer
+from rl_network.critic_network import CriticNN
+from utils import file_to_patterns, extract_features
 
 kivy.require('1.9.1')
 
@@ -54,6 +58,24 @@ class BoardGrid(GridLayout):
             self.last_stone.remove_dot()
         self.last_stone = stone
 
+    def board_value_listener(self, event):
+        patterns = file_to_patterns('pattern.txt')
+        feature = extract_features(event.board.board, patterns)
+        cnn = CriticNN(len(feature))
+        children = []
+        features = []
+        for pos, next_board in event.board.enumerate_next_board():
+            n = pos[0] * 15 + pos[1]
+            stone = self.children[224-n]
+            if stone.has_stone():
+                continue
+            else:
+                children.append(stone)
+                feature = extract_features(next_board, patterns)
+                features.append(feature)
+        for child, v in zip(children, cnn.run_value(features)):
+            child.show_value(v[0])
+
     def draw_grid(self):
         self.canvas.before.clear()
         with self.canvas.before:
@@ -96,7 +118,9 @@ class Stone(FloatLayout):
         self.move = move
         self.stone_img = Image(size_hint=(.9, .9),
                                pos_hint={'center_x': 0.5, 'center_y': 0.5})
+        self.label = Label(pos_hint={'center_x': 0.5, 'center_y': 0.5})
         self.bind(on_touch_up=self.click)
+        self.add_widget(self.label)
 
     def click(self, instance, touch):
         if self.collide_point(touch.x, touch.y):
@@ -117,22 +141,40 @@ class Stone(FloatLayout):
     def remove_dot(self):
         self.stone_img.source = self.stone_img.source.replace('_dot', '')
 
+    def has_stone(self):
+        return self.stone_img in self.children
+
+    def show_value(self, value):
+        self.label.text = str(value)
+
+    def remove_value(self):
+        self.remove_widget(self.label)
+
 
 class GomokuApp(App):
     def __init__(self, **kwargs):
         super(GomokuApp, self).__init__(**kwargs)
-        #self.game = GomokuGame(GuiPlayer, GuiPlayer)
-        #self.game = GomokuGame(GuiTestPlayer, GuiTestPlayer)
-        self.game = GomokuGame(ReinforceAIPlayer, ReinforceRandomPlayer)
-        #self.game = GomokuGame(RandomAIPlayer, RandomAIPlayer)
+        self.game = GomokuGame(GuiPlayer, GuiPlayer)
+        self.layout = BoardLayout()
+        # self.game = GomokuGame(GuiTestPlayer, GuiTestPlayer)
+        # self.game = GomokuGame(ReinforceAIPlayer, ReinforceRandomPlayer)
+        # self.game = GomokuGame(RandomAIPlayer, RandomAIPlayer)
 
     def build(self):
-        layout = BoardLayout()
-        self.game.set_event_callback(layout.board_grid.update_stone)
-        return layout
+        self.game.set_event_callback(self.callback)
+        return self.layout
 
     def on_start(self):
         Thread(target=self.game.start, daemon=True).start()
+
+    @mainthread
+    def callback(self, event):
+        if isinstance(event, MoveEvent):
+            self.layout.board_grid.update_stone(event)
+        elif isinstance(event, BoardUpdateEvent):
+            self.layout.board_grid.board_value_listener(event)
+        elif isinstance(event, GameOverEvent):
+            self.stop()
 
 
 if __name__ == '__main__':

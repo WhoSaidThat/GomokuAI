@@ -41,17 +41,59 @@ def diagonal_line(board, x, y, direction):
     return l
 
 
-def scan_patterns(board, pattern_file):
+def extract_features(board, patterns):
     """Return a list of the occurrence of patterns.
     :param board: List representation of the board.
-    :param pattern_file: The file to read the patterns.
+    :param patterns: Pattern list or the file name from which to read the patterns.
     :return: A list of features. Each pattern has 5 + 2 features, except for patterns with 5 same-color stones in a row,
-    which only have 1 + 2 patterns.
+             which only have 1 + 2 patterns.
     """
-    with open(pattern_file) as file:
-        patterns = [line.strip() for line in file]
-    occurrence = [0] * len(patterns)
+    if isinstance(patterns, str):
+        patterns = file_to_patterns(patterns)
+
+    occurrence = pattern_occurrence(board, patterns)
     feature = []
+
+    for p, o in zip(patterns, occurrence):
+        if 'bbbbb' in p or 'wwwww' in p:
+            if o > 0:
+                feature += [1]
+            else:
+                feature += [0]
+            continue
+
+        if o == 0:
+            feature += [0, 0, 0, 0, 0]
+        elif o == 1:
+            feature += [1, 0, 0, 0, 0]
+        elif o == 2:
+            feature += [1, 1, 0, 0, 0]
+        elif o == 3:
+            feature += [1, 1, 1, 0, 0]
+        elif o == 4:
+            feature += [1, 1, 1, 1, 0]
+        elif o >= 5:
+            feature += [1, 1, 1, 1, (o-4)/2]
+
+    # count the stones on the board to determine who is next to move
+    num_stone = 0
+    for row in board:
+        for stone in row:
+            if stone != '.':
+                num_stone += 1
+    for o in occurrence:
+        if o == 0:
+            feature += [0, 0]
+        else:
+            if num_stone % 2 == 0:  # black to move
+                feature += [1, 0]
+            else:                   # white to move
+                feature += [0, 1]
+    return feature
+
+
+def pattern_occurrence(board, patterns):
+    occurrence = [0] * len(patterns)
 
     lines = []
     # get horizontal lines
@@ -77,45 +119,14 @@ def scan_patterns(board, pattern_file):
 
     for i, p in enumerate(patterns):
         for line in lines:
-            if 'b' in p:
-                _p = p.replace('.', '[^b]')
-            elif 'w' in p:
-                _p = p.replace('.', '[^w]')
+            _p = p.replace('.', '\.')
             occurrence[i] += len(re.findall(r'(?=(%s))' % _p, line))
+            if p == p[::-1]:
+                occurrence[i] += len(re.findall(r'(?=(%s))' % _p, line[::-1]))
+    return occurrence
 
-        # special case: five same-color stones in a raw
-        if 'bbbbb' in p or 'wwwww' in p:
-            if occurrence[i] > 0:
-                feature += [1]
-            else:
-                feature += [0]
-            continue
 
-        if occurrence[i] == 0:
-            feature += [0, 0, 0, 0, 0]
-        elif occurrence[i] == 1:
-            feature += [1, 0, 0, 0, 0]
-        elif occurrence[i] == 2:
-            feature += [1, 1, 0, 0, 0]
-        elif occurrence[i] == 3:
-            feature += [1, 1, 1, 0, 0]
-        elif occurrence[i] == 4:
-            feature += [1, 1, 1, 1, 0]
-        elif occurrence[i] >= 5:
-            feature += [1, 1, 1, 1, (occurrence[i]-4)/2]
-
-    # count the stones on the board to determine who is next to move
-    num_stone = 0
-    for row in board:
-        for stone in row:
-            if stone != '.':
-                num_stone += 1
-    for o in occurrence:
-        if o == 0:
-            feature += [0, 0]
-        else:
-            if num_stone % 2 == 0:  # black to move
-                feature += [1, 0]
-            else:                   # white to move
-                feature += [0, 1]
-    return feature
+def file_to_patterns(f):
+    with open(f) as file:
+        patterns = [line.strip() for line in file]
+    return patterns
