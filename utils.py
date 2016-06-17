@@ -121,7 +121,7 @@ def pattern_occurrence(board, patterns):
         for line in lines:
             _p = p.replace('.', '\.')
             occurrence[i] += len(re.findall(r'(?=(%s))' % _p, line))
-            if p == p[::-1]:
+            if p != p[::-1]:
                 occurrence[i] += len(re.findall(r'(?=(%s))' % _p, line[::-1]))
     return occurrence
 
@@ -130,3 +130,23 @@ def file_to_patterns(f):
     with open(f) as file:
         patterns = [line.strip() for line in file]
     return patterns
+
+def get_state(board):
+    """Return board state. 0: none, 1: black, 2: white, 3: board full"""
+    for row in range(15):
+        for col in range(15):
+            for color in ['b', 'w']:
+                if board[row][col] == color:
+                    win_flag = [1, 1, 1, 1]
+                    for i in range(1, 5):
+                        if row + i >= 15 or board[row + i][col] != color:
+                            win_flag[0] = 0
+                        if col + i >= 15 or board[row][col + i] != color:
+                            win_flag[1] = 0
+                        if row + i >= 15 or col + i >= 15 or board[row + i][col + i] != color:
+                            win_flag[2] = 0
+                        if row + i >= 15 or col - i < 0 or board[row + i][col - i] != color:
+                            win_flag[3] = 0
+                    if any(win_flag):
+                        return ['b', 'w'].index(color) + 1
+    return 0
