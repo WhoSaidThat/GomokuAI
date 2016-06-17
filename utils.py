@@ -7,8 +7,9 @@ def in_board(x, y):
     return (0 <= x < 15) and (0 <= y < 15)
 
 
-def str_to_board(str):
-    return [list(row) for row in str.split()]
+def str_to_board(string):
+    string = string.strip()
+    return [list(row) for row in string.split()]
 
 
 def file_to_board(file):
@@ -17,25 +18,35 @@ def file_to_board(file):
 
 
 def diagonal_line(board, x, y, direction):
-    """Return the board layout on a diagonal line.
+    """Return the board layout on the diagonal line of the given position.
 
     :param board: 2D array of board info.
-    :param x: Starting x coordinate.
-    :param y: Starting y coordinate.
+    :param x: x coordinate.
+    :param y: y coordinate.
     :param direction: Should be '\\' or '/'
-    :return: A list containing board info along the given direction starting from (x, y)
+    :return: A list containing board info of the given direction on (x, y)
     """
     l = []
     if direction == '\\':
+        while in_board(x, y):
+            x -= 1
+            y -= 1
+        x += 1
+        y += 1
         while in_board(x, y):
             l.append(board[x][y])
             x += 1
             y += 1
     elif direction == '/':
         while in_board(x, y):
-            l.append(board[x][y])
             x -= 1
             y += 1
+        x += 1
+        y -= 1
+        while in_board(x, y):
+            l.append(board[x][y])
+            x += 1
+            y -= 1
     else:
         raise Exception(r"direction should be either '/' or '\\'")
     return l
@@ -111,10 +122,10 @@ def pattern_occurrence(board, patterns):
     # get '/' lines
     # we start from the first row then the last column
     for c in range(15):
-        line = ''.join(diagonal_line(board, c, 0, '/'))
+        line = ''.join(diagonal_line(board, 0, c, '/'))
         lines.append(line)
     for r in range(1, 15):
-        line = ''.join(diagonal_line(board, 14, r, '/'))
+        line = ''.join(diagonal_line(board, r, 14, '/'))
         lines.append(line)
 
     for i, p in enumerate(patterns):
@@ -130,6 +141,7 @@ def file_to_patterns(f):
     with open(f) as file:
         patterns = [line.strip() for line in file]
     return patterns
+
 
 def get_state(board):
     """Return board state. 0: none, 1: black, 2: white, 3: board full"""
