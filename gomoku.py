@@ -59,6 +59,7 @@ class BoardGrid(GridLayout):
         self.last_stone = stone
 
     def board_value_listener(self, event):
+        return
         patterns = file_to_patterns('pattern.txt')
         feature = extract_features(event.board.board, patterns)
         cnn = CriticNN(len(feature))
@@ -154,10 +155,10 @@ class Stone(FloatLayout):
 class GomokuApp(App):
     def __init__(self, **kwargs):
         super(GomokuApp, self).__init__(**kwargs)
-        self.game = GomokuGame(GuiPlayer, GuiPlayer)
         self.layout = BoardLayout()
+        # self.game = GomokuGame(GuiPlayer, GuiPlayer)
         # self.game = GomokuGame(GuiTestPlayer, GuiTestPlayer)
-        # self.game = GomokuGame(ReinforceAIPlayer, ReinforceRandomPlayer)
+        self.game = GomokuGame(ReinforceAIPlayer, ReinforceAIPlayer)
         # self.game = GomokuGame(RandomAIPlayer, RandomAIPlayer)
 
     def build(self):

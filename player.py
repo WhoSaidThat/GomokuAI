@@ -107,7 +107,6 @@ class ReinforceAIPlayer(GomokuPlayer):
     def think(self, game):
         legal_moves = game.board.get_legal_nearby_moves(2) or [(7, 7)]
         values_dict = {}
-        tmp_board = game.board.board
         pattern_array = []
         white_will_win = 0
         black_will_win = 0
@@ -117,15 +116,15 @@ class ReinforceAIPlayer(GomokuPlayer):
             max_eval = -10000
         else:
             max_eval = 10000
-        occurence = utils.pattern_occurrence(game.board.board, self.load_pattern)
+        occurence = game.board.occurrence
         od_value = sum([a*b for a,b in zip(occurence, self.mul_values)])
         for x, y in legal_moves:
-            tmp_board[x][y] = game.current_player.stone_color
-            pattern = utils.extract_features(tmp_board, config.pattern_file_name)
+            b = Board(game.board)
+            b.put_stone((x, y))
+            pattern = b.get_features()
+            print(pattern)
             pattern_array.append(pattern)
-            state = utils.get_state(tmp_board)
-            self_occurence = utils.pattern_occurrence(tmp_board, self.load_pattern)
-            self_value = sum([a*b for a,b in zip(self_occurence, self.mul_values)])
+            self_value = sum([a*b for a, b in zip(b.occurrence, self.mul_values)])
             if game.current_player.stone_color == 'b':
                 if self_value > max_eval:
                     max_eval = self_value
@@ -141,6 +140,7 @@ class ReinforceAIPlayer(GomokuPlayer):
                     if random.randint(0,9) >= 4:
                         max_eval_move = (x, y)
 
+            state = b.get_state()
             if state == 1:
                 print('b win')
                 black_will_win = 1
@@ -149,7 +149,6 @@ class ReinforceAIPlayer(GomokuPlayer):
                 print('w win')
                 white_will_win = 1
                 max_point = (x, y)
-            tmp_board[x][y] = '.'
 
         if max_eval_move == (-1, -1):
             max_eval_move = random.choice(legal_moves)
@@ -170,9 +169,10 @@ class ReinforceAIPlayer(GomokuPlayer):
             else:
                 max_point = max_eval_move
                 #max_point = random.choice(legal_moves)
-        tmp_board[max_point[0]][max_point[1]] = game.current_player.stone_color
-        self._feature = utils.extract_features(game.board.board, config.pattern_file_name)
-        new_pattern = utils.extract_features(tmp_board, config.pattern_file_name)
+        b = Board(game.board)
+        b.put_stone(max_point)
+        self._feature = game.board.get_features()
+        new_pattern = b.get_features()
         print(max_point)
         #print(values_dict[max_point])
         #print("new_pattern", new_pattern)
@@ -184,9 +184,9 @@ class ReinforceAIPlayer(GomokuPlayer):
             print("learning...reward -1")
             print(self.CNN.run_learning([[-1.]], [self._feature], [new_pattern]))
         else:
-            new_occurence = utils.pattern_occurrence(tmp_board, self.load_pattern)
+            new_occurence = b.occurrence
             print("new_occur", new_occurence)
-            self_occurence = utils.pattern_occurrence(game.board.board, self.load_pattern)
+            self_occurence = game.board.occurrence
             self_value = sum([a*b for a,b in zip(self_occurence, self.mul_values)])
             new_value = sum([a*b for a,b in zip(new_occurence, self.mul_values)])
             print("self value:", self_value)
