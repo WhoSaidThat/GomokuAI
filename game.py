@@ -6,6 +6,9 @@ class GomokuGame:
         self.board = Board()
         self.players = [player1_cls('b'), player2_cls('w')]
         self._event_callback = lambda event: None
+        self.moves = 0
+        self._event_callback = None
+        self.test_move = [(7, 7), (3, 2), (7, 8), (2, 4), (7, 9), (7, 2), (7, 10), (11, 2), (7, 11)]
 
     def start(self):
         state = self.board.get_state()
