@@ -1,4 +1,6 @@
 import copy
+import re
+from utils import diagonal_line, pattern_occurrence
 
 
 class GomokuGame:
@@ -54,8 +56,21 @@ class GameOverEvent:
 
 
 class Board:
-    def __init__(self, board=None):
-        self._board = copy.deepcopy(board) or [['.'] * 15 for _ in range(15)]
+    def __init__(self, board=None, patterns=[]):
+        if isinstance(board, Board):
+            self._board = copy.deepcopy(board.board)
+            self._patterns = copy.deepcopy(board._patterns)
+            self.occurrence = copy.deepcopy(board.occurrence)
+        else:
+            self._board = copy.deepcopy(board) or [['.'] * 15 for _ in range(15)]
+            self._patterns = patterns
+            self.occurrence = pattern_occurrence(self._board, patterns)
+
+    def __repr__(self):
+        s = ''
+        for row in self._board:
+            s += ''.join(row) + '\n'
+        return s
 
     def get_legal_moves(self):
         moves = []
@@ -86,12 +101,17 @@ class Board:
         """
         First call to this method will place a black stone on the given position and second call
         will place a white stone, and so on.
+
+        This method also updates the pattern occurrence.
         """
         if not self.is_legal_move(pos):
             raise Exception('Illegal move')
 
         row, col = pos
+        o1 = self._get_occurrence_at(pos)
         self._board[row][col] = self.get_next_stone_color()
+        o2 = self._get_occurrence_at(pos)
+        self.occurrence = [o + y - x for o, x, y in zip(self.occurrence, o1, o2)]
 
     def get_next_stone_color(self):
         return ['b', 'w'][self.num_stone % 2]
@@ -126,7 +146,7 @@ class Board:
         """
         nb = []
         for move in self.get_legal_moves():
-            next_board = Board(self._board)
+            next_board = Board(self)
             next_board.put_stone(move)
             nb.append((move, next_board.board))
         return nb
@@ -150,3 +170,65 @@ class Board:
                         if any(win_flag):
                             return ['b', 'w'].index(color) + 1
         return 3 if not self.get_legal_moves() else 0
+
+    def _get_occurrence_at(self, pos):
+        x, y = pos
+        occurrence = [0] * len(self._patterns)
+
+        lines = [''.join(self._board[x]),
+                 ''.join(list(zip(*self._board))[y]),
+                 ''.join(diagonal_line(self._board, x, y, '\\')),
+                 ''.join(diagonal_line(self._board, x, y, '/'))]
+
+        for i, p in enumerate(self._patterns):
+            for line in lines:
+                _p = p.replace('.', '\.')
+                occurrence[i] += len(re.findall(r'(?=(%s))' % _p, line))
+                if p != p[::-1]:
+                    occurrence[i] += len(re.findall(r'(?=(%s))' % _p, line[::-1]))
+        return occurrence
+
+    def get_features(self):
+        feature = []
+
+        for p, o in zip(self._patterns, self.occurrence):
+            if 'bbbbb' in p or 'wwwww' in p:
+                if o > 0:
+                    feature += [1]
+                else:
+                    feature += [0]
+                continue
+
+            if o == 0:
+                feature += [0, 0, 0, 0, 0]
+            elif o == 1:
+                feature += [1, 0, 0, 0, 0]
+            elif o == 2:
+                feature += [1, 1, 0, 0, 0]
+            elif o == 3:
+                feature += [1, 1, 1, 0, 0]
+            elif o == 4:
+                feature += [1, 1, 1, 1, 0]
+            elif o >= 5:
+                feature += [1, 1, 1, 1, (o-4)/2]
+
+        for o in self.occurrence:
+            if o == 0:
+                feature += [0, 0]
+            else:
+                if self.num_stone % 2 == 0:  # black to move
+                    feature += [1, 0]
+                else:                   # white to move
+                    feature += [0, 1]
+        return feature
+
+if __name__ == '__main__':
+    from utils import extract_features, file_to_patterns, str_to_board
+    import random
+    b = Board(patterns=file_to_patterns('pattern.txt'))
+    for i in range(100):
+        b.put_stone(random.choice(b.get_legal_moves()))
+    print(b)
+    print(b.get_features())
+    print(extract_features(b.board, file_to_patterns('pattern.txt')))
+    assert b.get_features() == extract_features(b.board, file_to_patterns('pattern.txt'))
