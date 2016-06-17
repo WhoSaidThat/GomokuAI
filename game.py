@@ -1,11 +1,11 @@
 import copy
 import re
-from utils import diagonal_line, pattern_occurrence
+from utils import diagonal_line, file_to_patterns, pattern_occurrence
 
 
 class GomokuGame:
     def __init__(self, player1_cls, player2_cls):
-        self.board = Board()
+        self.board = Board(patterns=file_to_patterns('pattern.txt'))
         self.players = [player1_cls('b'), player2_cls('w')]
         self._event_callback = lambda event: None
         self.moves = 0
@@ -58,7 +58,7 @@ class GameOverEvent:
 class Board:
     def __init__(self, board=None, patterns=[]):
         if isinstance(board, Board):
-            self._board = copy.deepcopy(board.board)
+            self._board = board.board
             self._patterns = copy.deepcopy(board._patterns)
             self.occurrence = copy.deepcopy(board.occurrence)
         else:
