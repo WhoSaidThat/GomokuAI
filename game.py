@@ -1,21 +1,35 @@
 import copy
 import re
-from utils import diagonal_line, pattern_occurrence
+import random
+import rl_network.critic_network as cnn
+from utils import diagonal_line, pattern_occurrence, file_to_patterns
 
 
 class GomokuGame:
     def __init__(self, player1_cls, player2_cls):
-        self.board = Board()
         self.players = [player1_cls('b'), player2_cls('w')]
         self._event_callback = lambda event: None
         self.moves = 0
-        self._event_callback = None
-        self.test_move = [(7, 7), (3, 2), (7, 8), (2, 4), (7, 9), (7, 2), (7, 10), (11, 2), (7, 11)]
+        self.winner = None
+
+        if random.random() < 0.5:
+            self.first_player = 1
+            self.players[0].set_player_num(1)
+            self.players[1].set_player_num(2)
+        else:
+            self.first_player = 2
+            self.players[0].set_player_num(2)
+            self.players[1].set_player_num(1)
+
+        self.board = Board(patterns=file_to_patterns("pattern.txt"))
+        self.CNN = cnn.CriticNN(len(self.board.get_features(self)))
 
     def start(self):
         state = self.board.get_state()
         while state == 0:
             move = self.current_player.think(self)
+
+            self._event_callback(StepRecordEvent(move))
             self._event_callback(MoveEvent(self.current_player.stone_color, move))
 
             self.board.put_stone(move)
@@ -23,17 +37,25 @@ class GomokuGame:
 
             state = self.board.get_state()
 
-        print('GG')
+            self.moves += 1
+
+        self.moves -= 1 #reset to last move
+        self.winner = self.current_player.player_num
+        print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
         if state == 1:
+            print("BLACK WIN!")
             self._event_callback(GameOverEvent('b'))
         elif state == 2:
+            print("WHITE WIN!")
             self._event_callback(GameOverEvent('w'))
         elif state == 3:
+            print("DRAW!!!!")
             self._event_callback(GameOverEvent())
+        print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 
     @property
     def current_player(self):
-        return self.players[self.board.num_stone % 2]
+        return self.players[self.moves % 2]
 
     def set_event_callback(self, func):
         self._event_callback = func
@@ -54,6 +76,9 @@ class GameOverEvent:
     def __init__(self, winner=None):
         self.winner = winner
 
+class StepRecordEvent:
+    def __init__(self, move):
+        self.move = move
 
 class Board:
     def __init__(self, board=None, patterns=[]):
@@ -105,6 +130,7 @@ class Board:
         This method also updates the pattern occurrence.
         """
         if not self.is_legal_move(pos):
+            print("Illegal Position", pos)
             raise Exception('Illegal move')
 
         row, col = pos
@@ -116,7 +142,7 @@ class Board:
     def get_next_stone_color(self):
         return ['b', 'w'][self.num_stone % 2]
 
-    def get_legal_nearby_moves(self, nearby_length=1):
+    def get_legal_nearby_moves(self, nearby_length=2):
         """
         This gives nearby moves within the nearby_length
         (ex. nearby_length=1 --> would search for current_place-1 ~ current_place+1
@@ -188,7 +214,7 @@ class Board:
                     occurrence[i] += len(re.findall(r'(?=(%s))' % _p, line[::-1]))
         return occurrence
 
-    def get_features(self):
+    def get_features(self, game):
         feature = []
 
         for p, o in zip(self._patterns, self.occurrence):
@@ -216,10 +242,16 @@ class Board:
             if o == 0:
                 feature += [0, 0]
             else:
-                if self.num_stone % 2 == 0:  # black to move
+                if game.current_player.player_num == 1:
                     feature += [1, 0]
-                else:                   # white to move
+                else:                   
                     feature += [0, 1]
+
+        if game.first_player == 1:
+            feature += [1, 0]
+        else:
+            feature += [0, 1]
+
         return feature
 
 if __name__ == '__main__':

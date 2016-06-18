@@ -10,8 +10,8 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.image import Image
 from kivy.uix.label import Label
 
-from game import GomokuGame, BoardUpdateEvent, GameOverEvent, MoveEvent
-from player import GuiPlayer, RandomAIPlayer, ReinforceAIPlayer, GuiTestPlayer, ReinforceRandomPlayer
+from game import GomokuGame, BoardUpdateEvent, GameOverEvent, MoveEvent, StepRecordEvent
+from player import *
 from rl_network.critic_network import CriticNN
 from utils import file_to_patterns, extract_features
 
@@ -59,22 +59,23 @@ class BoardGrid(GridLayout):
         self.last_stone = stone
 
     def board_value_listener(self, event):
-        patterns = file_to_patterns('pattern.txt')
-        feature = extract_features(event.board.board, patterns)
-        cnn = CriticNN(len(feature))
-        children = []
-        features = []
-        for pos, next_board in event.board.enumerate_next_board():
-            n = pos[0] * 15 + pos[1]
-            stone = self.children[224-n]
-            if stone.has_stone():
-                continue
-            else:
-                children.append(stone)
-                feature = extract_features(next_board, patterns)
-                features.append(feature)
-        for child, v in zip(children, cnn.run_value(features)):
-            child.show_value(v[0])
+        return
+        # patterns = file_to_patterns('pattern.txt')
+        # feature = extract_features(event.board.board, patterns)
+        # cnn = CriticNN(len(feature))
+        # children = []
+        # features = []
+        # for pos, next_board in event.board.enumerate_next_board():
+        #     n = pos[0] * 15 + pos[1]
+        #     stone = self.children[224-n]
+        #     if stone.has_stone():
+        #         continue
+        #     else:
+        #         children.append(stone)
+        #         feature = extract_features(next_board, patterns)
+        #         features.append(feature)
+        # for child, v in zip(children, cnn.run_value(features)):
+        #     child.show_value(v[0])
 
     def draw_grid(self):
         self.canvas.before.clear()
@@ -154,11 +155,12 @@ class Stone(FloatLayout):
 class GomokuApp(App):
     def __init__(self, **kwargs):
         super(GomokuApp, self).__init__(**kwargs)
-        self.game = GomokuGame(GuiPlayer, GuiPlayer)
         self.layout = BoardLayout()
-        # self.game = GomokuGame(GuiTestPlayer, GuiTestPlayer)
-        # self.game = GomokuGame(ReinforceAIPlayer, ReinforceRandomPlayer)
-        # self.game = GomokuGame(RandomAIPlayer, RandomAIPlayer)
+        #self.game = GomokuGame(GuiPlayer, GuiPlayer)
+        #self.game = GomokuGame(GuiTestPlayer, GuiTestPlayer)
+        self.game = GomokuGame(ReinforceAIPlayer, ReinforceAIPlayer)
+        #self.game = GomokuGame(PlayRecordPlayer, PlayRecordPlayer)
+        open('play_record.txt', 'w').close()
 
     def build(self):
         self.game.set_event_callback(self.callback)
@@ -171,11 +173,17 @@ class GomokuApp(App):
     def callback(self, event):
         if isinstance(event, MoveEvent):
             self.layout.board_grid.update_stone(event)
+        elif isinstance(event, StepRecordEvent):
+            move = event.move
+            with open('play_record.txt', 'a') as f:
+                write_str = str(move[0]) + ", " + str(move[1]) + "\n"
+                f.write(write_str)
         elif isinstance(event, BoardUpdateEvent):
             self.layout.board_grid.board_value_listener(event)
-        elif isinstance(event, GameOverEvent):
-            self.stop()
+        # elif isinstance(event, GameOverEvent):
+        #     self.stop()
 
 
 if __name__ == '__main__':
     GomokuApp().run()
+

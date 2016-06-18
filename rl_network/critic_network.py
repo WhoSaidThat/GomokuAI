@@ -4,7 +4,7 @@ import os
 
 class CriticNN:
     
-    def __init__(self, input_size=274, hidden_size=100, alpha=0.1, discount=0.9, learn_rate=0.1, step=100,
+    def __init__(self, input_size=274, hidden_size=100, alpha=0.2, discount=1.0, learn_rate=0.05, step=50,
                  model_dir='model/', model_name='model'):
         self._alpha = alpha
         self._discount = discount
@@ -18,8 +18,8 @@ class CriticNN:
 
         self._graph = tf.Graph()
         with self._graph.as_default():
-            self._W1 = tf.Variable(tf.zeros([self._input_size, self._hidden_size]), name='W1')
-            self._W2 = tf.Variable(tf.zeros([self._hidden_size, 1]), name='W2')
+            self._W1 = tf.Variable(tf.random_normal([self._input_size, self._hidden_size], mean=0.0, stddev=0.5), name='W1')
+            self._W2 = tf.Variable(tf.random_normal([self._hidden_size, 1], mean=0.0, stddev=0.5), name='W2')
             self._saver = tf.train.Saver()
 
             self._sess = tf.Session(graph=self._graph)
@@ -79,7 +79,9 @@ class CriticNN:
                          next_input_placeholder: x_next,
                          input_placeholder: x_current}
 
-            self._sess.run(train_op, feed_dict=feed_dict)
+            for _ in range(self._step):
+                self._sess.run(train_op, feed_dict=feed_dict)
+
             self._saver.save(self._sess, self._model_path)
 
         v_current = self.run_value(x_current)
